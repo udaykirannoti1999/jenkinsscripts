@@ -11,7 +11,7 @@ pipeline {
         IMAGE_TAG = "latest"
         IMAGE_FULL = "trivy-sample:latest"
         TRIVY_CACHE_DIR = "/tmp/trivy-cache"
-        TRIVY_HTML_REPORT = "html.tpl"
+        TRIVY_HTML_REPORT = "reports/trivy-report.html"
         TRIVY_JSON_REPORT = "scan_result.json"
         S3_BUCKET = "new-static123"
     }
@@ -37,7 +37,7 @@ pipeline {
                     def highVulns = scanDockerImage(env.IMAGE_FULL)
                     echo "Number of HIGH/CRITICAL vulnerabilities: ${highVulns}"
                     if (highVulns >= 4) {
-                        echo("❌ Build failed: ${highVulns} HIGH/CRITICAL vulnerabilities detected.")
+                        error("❌ Build failed: ${highVulns} HIGH/CRITICAL vulnerabilities detected.")
                     }
                 }
             }
@@ -75,12 +75,12 @@ pipeline {
             script {
                 if (fileExists(env.TRIVY_HTML_REPORT)) {
                     publishHTML([
-                        reportDir: '.', // HTML is generated in workspace root
-                        reportFiles: env.TRIVY_HTML_REPORT,
+                        reportDir: 'reports',
+                        reportFiles: 'trivy-report.html',
                         reportName: 'Trivy Vulnerability Report',
                         allowMissing: false,
                         alwaysLinkToLastBuild: true,
-                        keepAll: false, // Show only latest report
+                        keepAll: false,
                         reportTitles: 'Security Report'
                     ])
                 } else {
@@ -101,9 +101,9 @@ def buildDockerImage(imageName, imageTag) {
 }
 
 def scanDockerImage(imageFullName) {
-    // Generate JSON + HTML using local html.tpl
+    // Generate JSON + HTML using local html.tpl and output to reports/
     sh """
-        mkdir -p ${env.TRIVY_CACHE_DIR}
+        mkdir -p ${env.TRIVY_CACHE_DIR} reports
         trivy image --cache-dir ${env.TRIVY_CACHE_DIR} --format json -o ${env.TRIVY_JSON_REPORT} ${imageFullName}
         trivy image --cache-dir ${env.TRIVY_CACHE_DIR} --format template --template "@html.tpl" -o ${env.TRIVY_HTML_REPORT} ${imageFullName}
     """
