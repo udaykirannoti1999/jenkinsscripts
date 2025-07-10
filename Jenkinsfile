@@ -73,6 +73,9 @@ pipeline {
     post {
         always {
             script {
+                // Make sure the reports directory is readable
+                sh "chmod -R a+rx reports || true"
+
                 if (fileExists(env.TRIVY_HTML_REPORT)) {
                     publishHTML([
                         reportDir: 'reports',
@@ -86,6 +89,9 @@ pipeline {
                 } else {
                     echo "⚠️ Trivy HTML report not found. Skipping HTML publishing."
                 }
+
+                // Fallback for debug access
+                archiveArtifacts artifacts: 'reports/trivy-report.html', allowEmptyArchive: true
             }
         }
     }
@@ -101,7 +107,6 @@ def buildDockerImage(imageName, imageTag) {
 }
 
 def scanDockerImage(imageFullName) {
-    // Generate JSON + HTML using local html.tpl and output to reports/
     sh """
         mkdir -p ${env.TRIVY_CACHE_DIR} reports
         trivy image --cache-dir ${env.TRIVY_CACHE_DIR} --format json -o ${env.TRIVY_JSON_REPORT} ${imageFullName}
