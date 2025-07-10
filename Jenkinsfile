@@ -37,7 +37,7 @@ pipeline {
                     def highVulns = scanDockerImage(env.IMAGE_FULL)
                     echo "Number of HIGH/CRITICAL vulnerabilities: ${highVulns}"
                     if (highVulns >= 4) {
-                        echo("❌ Build failed: ${highVulns} HIGH/CRITICAL vulnerabilities detected.")
+                        error("❌ Build failed: ${highVulns} HIGH/CRITICAL vulnerabilities detected.")
                     }
                 }
             }
@@ -49,6 +49,7 @@ pipeline {
                     def s3KeyJson = "scan-reports/${IMAGE_NAME}-${IMAGE_TAG}-scan_result.json"
                     def s3KeyHtml = "scan-reports/${IMAGE_NAME}-${IMAGE_TAG}-trivy-report.html"
 
+                    // Upload both JSON and HTML reports
                     sh """
                         aws s3 cp ${TRIVY_JSON_REPORT} s3://${S3_BUCKET}/${s3KeyJson}
                         aws s3 cp ${TRIVY_HTML_REPORT} s3://${S3_BUCKET}/${s3KeyHtml}
@@ -73,25 +74,18 @@ pipeline {
     post {
         always {
             script {
-                // Make sure the reports directory is readable
-                sh "chmod -R a+rx reports || true"
-
                 if (fileExists(env.TRIVY_HTML_REPORT)) {
                     publishHTML([
-                        reportDir: 'reports',
-                        reportFiles: 'trivy-report.html',
+                        reportDir: '.',
+                        reportFiles: env.TRIVY_HTML_REPORT,
                         reportName: 'Trivy Vulnerability Report',
                         allowMissing: false,
                         alwaysLinkToLastBuild: true,
-                        keepAll: false,
-                        reportTitles: 'Security Report'
+                        keepAll: true
                     ])
                 } else {
                     echo "⚠️ Trivy HTML report not found. Skipping HTML publishing."
                 }
-
-                // Fallback for debug access
-                archiveArtifacts artifacts: 'reports/trivy-report.html', allowEmptyArchive: true
             }
         }
     }
@@ -107,8 +101,9 @@ def buildDockerImage(imageName, imageTag) {
 }
 
 def scanDockerImage(imageFullName) {
+    // Generate JSON + HTML using local html.tpl
     sh """
-        mkdir -p ${env.TRIVY_CACHE_DIR} reports
+        mkdir -p ${env.TRIVY_CACHE_DIR}
         trivy image --cache-dir ${env.TRIVY_CACHE_DIR} --format json -o ${env.TRIVY_JSON_REPORT} ${imageFullName}
         trivy image --cache-dir ${env.TRIVY_CACHE_DIR} --format template --template "@html.tpl" -o ${env.TRIVY_HTML_REPORT} ${imageFullName}
     """
