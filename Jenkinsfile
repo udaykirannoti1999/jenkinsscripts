@@ -104,11 +104,18 @@ def buildDockerImage(imageName, imageTag) {
 def scanDockerImage(imageFullName) {
     // Generate JSON + HTML
     sh """
-        mkdir -p ${env.TRIVY_CACHE_DIR}
-        curl -sSL -o html.tpl ${env.TRIVY_TEMPLATE_URL}
-        trivy image --cache-dir ${env.TRIVY_CACHE_DIR} --format json -o ${env.TRIVY_JSON_REPORT} ${imageFullName}
-        trivy image --cache-dir ${env.TRIVY_CACHE_DIR} --format template --template "@html.tpl" -o ${env.TRIVY_HTML_REPORT} ${imageFullName}
-    """
+    mkdir -p ${env.TRIVY_CACHE_DIR}
+    curl -sSL -o html.tpl https://raw.githubusercontent.com/your-org/scripts/main/custom-trivy-html.tpl
+
+    trivy image --cache-dir ${env.TRIVY_CACHE_DIR} --format json -o full_report.json ${imageFullName}
+    jq '{
+      Target,
+      Vulnerabilities: [.Vulnerabilities[] | select((.Severity == "HIGH" or .Severity == "CRITICAL") and .FixedVersion != null)]
+    }' full_report.json > ${env.TRIVY_JSON_REPORT}
+
+    trivy image --cache-dir ${env.TRIVY_CACHE_DIR} --format template --template "@html.tpl" -o ${env.TRIVY_HTML_REPORT} ${imageFullName}
+"""
+
 
     def result = readJSON file: env.TRIVY_JSON_REPORT
     return result.Results.collectMany { it.Vulnerabilities ?: [] }
