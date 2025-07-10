@@ -1,19 +1,9 @@
-publishHTML([
-    reportDir: 'reports',
-    reportFiles: 'trivy-report.html',
-    reportName: 'Trivy Vulnerability Report',
-    allowMissing: false,
-    alwaysLinkToLastBuild: true,
-    keepAll: false,
-    reportTitles: 'Security Report'
-])
-
-// Updated html.tpl content:
-
 {{- $vulns := list -}}
 {{- range .Results }}
+  {{- $target := .Target }}
   {{- range .Vulnerabilities }}
     {{- if or (eq .Severity "HIGH") (eq .Severity "CRITICAL") }}
+      {{- $_ := set . "Target" $target -}}
       {{- $vulns = append $vulns . -}}
     {{- end }}
   {{- end }}
@@ -37,14 +27,14 @@ publishHTML([
 </head>
 <body>
     <h1>Trivy Report - HIGH/CRITICAL Vulnerabilities Only</h1>
-    <p>Total: {{ len $vulns }}</p>
+    <p>Total vulnerabilities: {{ len $vulns }}</p>
     <table>
         <tr>
             <th>Target</th>
             <th>Vulnerability ID</th>
-            <th>Pkg Name</th>
-            <th>Installed</th>
-            <th>Fixed</th>
+            <th>Package</th>
+            <th>Installed Version</th>
+            <th>Fixed Version</th>
             <th>Severity</th>
             <th>Title</th>
         </tr>
