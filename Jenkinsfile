@@ -11,7 +11,7 @@ pipeline {
         IMAGE_TAG = "latest"
         IMAGE_FULL = "trivy-sample:latest"
         TRIVY_CACHE_DIR = "/tmp/trivy-cache"
-        TRIVY_HTML_REPORT = "trivy-report.html"
+        TRIVY_HTML_REPORT = "html.tpl"
         TRIVY_JSON_REPORT = "scan_result.json"
         S3_BUCKET = "new-static123"
     }
