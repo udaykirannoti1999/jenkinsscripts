@@ -49,7 +49,6 @@ pipeline {
                     def s3KeyJson = "scan-reports/${IMAGE_NAME}-${IMAGE_TAG}-scan_result.json"
                     def s3KeyHtml = "scan-reports/${IMAGE_NAME}-${IMAGE_TAG}-trivy-report.html"
 
-                    // Upload both JSON and HTML reports
                     sh """
                         aws s3 cp ${TRIVY_JSON_REPORT} s3://${S3_BUCKET}/${s3KeyJson}
                         aws s3 cp ${TRIVY_HTML_REPORT} s3://${S3_BUCKET}/${s3KeyHtml}
@@ -76,12 +75,13 @@ pipeline {
             script {
                 if (fileExists(env.TRIVY_HTML_REPORT)) {
                     publishHTML([
-                        reportDir: '.',
+                        reportDir: '.', // HTML is generated in workspace root
                         reportFiles: env.TRIVY_HTML_REPORT,
                         reportName: 'Trivy Vulnerability Report',
                         allowMissing: false,
                         alwaysLinkToLastBuild: true,
-                        keepAll: true
+                        keepAll: false, // Show only latest report
+                        reportTitles: 'Security Report'
                     ])
                 } else {
                     echo "⚠️ Trivy HTML report not found. Skipping HTML publishing."
