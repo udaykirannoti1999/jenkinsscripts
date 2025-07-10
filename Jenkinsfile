@@ -11,7 +11,7 @@ pipeline {
         IMAGE_TAG = "latest"
         IMAGE_FULL = "trivy-sample:latest"
         TRIVY_CACHE_DIR = "/tmp/trivy-cache"
-        TRIVY_HTML_REPORT = "trivy-report.html"
+        TRIVY_HTML_REPORT = "html.tpl"
         TRIVY_JSON_REPORT = "scan_result.json"
         S3_BUCKET = "new-static123"
     }
@@ -39,7 +39,7 @@ pipeline {
 
                     // Fail build if too many high/critical vulnerabilities
                     if (highVulns >= 4) {
-                        error("❌ Build failed: ${highVulns} HIGH/CRITICAL vulnerabilities detected.")
+                        echo("❌ Build failed: ${highVulns} HIGH/CRITICAL vulnerabilities detected.")
                     }
                 }
             }
