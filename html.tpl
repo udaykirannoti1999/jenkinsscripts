@@ -1,3 +1,15 @@
+publishHTML([
+    reportDir: 'reports',
+    reportFiles: 'trivy-report.html',
+    reportName: 'Trivy Vulnerability Report',
+    allowMissing: false,
+    alwaysLinkToLastBuild: true,
+    keepAll: false,
+    reportTitles: 'Security Report'
+])
+
+// Updated html.tpl content:
+
 {{- $vulns := list -}}
 {{- range .Results }}
   {{- range .Vulnerabilities }}
