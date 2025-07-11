@@ -9,12 +9,12 @@ pipeline {
     environment {
         IMAGE_NAME = "trivy-sample"
         IMAGE_TAG = "latest"
-        IMAGE_FULL = "trivy-sample:latest"
+        IMAGE_FULL = "${IMAGE_NAME}:${IMAGE_TAG}"
         TRIVY_CACHE_DIR = "/tmp/trivy-cache"
         TRIVY_HTML_REPORT = "trivy-report.html"
         TRIVY_JSON_REPORT = "scan_result.json"
-        TRIVY_TEMPLATE_URL = "https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl"
         S3_BUCKET = "new-static123"
+        VULN_THRESHOLD = 4
     }
 
     stages {
@@ -36,9 +36,10 @@ pipeline {
             steps {
                 script {
                     def highVulns = scanDockerImage(env.IMAGE_FULL)
-                    echo "Number of HIGH/CRITICAL vulnerabilities: ${highVulns}"
-                    if (highVulns >= 4) {
-                        echo("❌ Build failed: ${highVulns} HIGH/CRITICAL vulnerabilities detected.")
+                    echo "🔎 Number of HIGH/CRITICAL vulnerabilities: ${highVulns}"
+
+                    if (highVulns >= env.VULN_THRESHOLD.toInteger()) {
+                        error("❌ Build failed: ${highVulns} HIGH/CRITICAL vulnerabilities detected.")
                     }
                 }
             }
@@ -50,7 +51,6 @@ pipeline {
                     def s3KeyJson = "scan-reports/${IMAGE_NAME}-${IMAGE_TAG}-scan_result.json"
                     def s3KeyHtml = "scan-reports/${IMAGE_NAME}-${IMAGE_TAG}-trivy-report.html"
 
-                    // Upload both JSON and HTML reports
                     sh """
                         aws s3 cp ${TRIVY_JSON_REPORT} s3://${S3_BUCKET}/${s3KeyJson}
                         aws s3 cp ${TRIVY_HTML_REPORT} s3://${S3_BUCKET}/${s3KeyHtml}
@@ -97,24 +97,26 @@ def buildDockerImage(imageName, imageTag) {
         if docker images | grep -q ${imageName}; then
             docker rmi -f ${imageName}:${imageTag}
         fi
+        docker build -t ${imageName}:${imageTag} .
     """
-    sh "docker build -t ${imageName}:${imageTag} ."
 }
+
 def scanDockerImage(imageFullName) {
     sh """
         mkdir -p ${env.TRIVY_CACHE_DIR}
 
-        # Run Trivy to generate full JSON report
-        trivy image --cache-dir ${env.TRIVY_CACHE_DIR} --format json -o ${env.TRIVY_JSON_REPORT} ${imageFullName}
+        # Generate JSON scan result
+        trivy image --cache-dir ${env.TRIVY_CACHE_DIR} \
+                    --format json \
+                    -o ${env.TRIVY_JSON_REPORT} \
+                    ${imageFullName}
 
-        # Generate filtered HTML from JSON using Python
+        # Generate filtered HTML report from JSON using Python script
         python3 generate_html_report.py ${env.TRIVY_JSON_REPORT} ${env.TRIVY_HTML_REPORT}
     """
 
-    // Parse JSON and return count of HIGH + CRITICAL vulnerabilities
+    // Parse and count only HIGH and CRITICAL
     def result = readJSON file: env.TRIVY_JSON_REPORT
     return result.Results.collectMany { it.Vulnerabilities ?: [] }
                          .count { it.Severity in ['HIGH', 'CRITICAL'] }
 }
-
-
