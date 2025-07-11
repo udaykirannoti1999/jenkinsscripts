@@ -38,7 +38,7 @@ pipeline {
                     def highVulns = scanDockerImage(env.IMAGE_FULL)
                     echo "Number of HIGH/CRITICAL vulnerabilities: ${highVulns}"
                     if (highVulns >= 4) {
-                        echo("❌ Build failed: ${highVulns} HIGH/CRITICAL vulnerabilities detected.")
+                        error("❌ Build failed: ${highVulns} HIGH/CRITICAL vulnerabilities detected.")
                     }
                 }
             }
