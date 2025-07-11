@@ -102,21 +102,21 @@ def buildDockerImage(imageName, imageTag) {
 }
 
 def scanDockerImage(imageFullName) {
+    writePythonScript() // 🟢 Generate the Python file
+
     sh """
         mkdir -p ${env.TRIVY_CACHE_DIR}
 
-        # Generate JSON scan result
         trivy image --cache-dir ${env.TRIVY_CACHE_DIR} \
                     --format json \
                     -o ${env.TRIVY_JSON_REPORT} \
                     ${imageFullName}
 
-        # Generate filtered HTML report from JSON using Python script
         python3 generate_html_report.py ${env.TRIVY_JSON_REPORT} ${env.TRIVY_HTML_REPORT}
     """
 
-    // Parse and count only HIGH and CRITICAL
     def result = readJSON file: env.TRIVY_JSON_REPORT
     return result.Results.collectMany { it.Vulnerabilities ?: [] }
                          .count { it.Severity in ['HIGH', 'CRITICAL'] }
 }
+
